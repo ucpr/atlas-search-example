@@ -38,7 +38,6 @@ func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 	col := h.mcli.Movies()
 	query := r.URL.Query().Get("query")
 
-	// 検索クエリを実行します。
 	searchStage := bson.D{
 		{Key: "$search", Value: bson.D{
 			{
@@ -54,34 +53,33 @@ func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 		}},
 	}
 	limitStage := bson.D{
-		{Key: "$limit", Value: 5},
+		{Key: "$limit", Value: 2},
 	}
-	/*
-		projectStage := bson.D{
-			{
-				Key: "$project", Value: bson.D{
-					{Key: "title", Value: 1},
-					{Key: "_id", Value: 0},
-				},
+	projectStage := bson.D{
+		{
+			Key: "$project", Value: bson.D{
+				{Key: "title", Value: 1},
+				{Key: "_id", Value: 1},
 			},
-		}
-	*/
-	opts := options.Aggregate().SetMaxTime(5 * time.Second)
-	cursor, err := col.Aggregate(ctx, mongo.Pipeline{searchStage, limitStage}, opts)
+		},
+	}
+	// 検索クエリを実行します。
+	opts := options.Aggregate().SetMaxTime(1 * time.Second)
+	cursor, err := col.Aggregate(ctx, mongo.Pipeline{searchStage, limitStage, projectStage}, opts)
 	if err != nil {
 		log.Println("failed to aggregate:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	// 結果を表示します。
+	// 結果をデコードします。
 	var results []Movie
 	if err := cursor.All(ctx, &results); err != nil {
 		log.Println("failed to decode results:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
+	// 結果を表示します。
 	log.Println("searched:", query, "results:", len(results))
 
 	w.Header().Set("Content-Type", "application/json")
