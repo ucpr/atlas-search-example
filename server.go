@@ -58,16 +58,18 @@ func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 	limitStage := bson.D{
 		{Key: "$limit", Value: 5},
 	}
-	projectStage := bson.D{
-		{
-			Key: "$project", Value: bson.D{
-				{Key: "title", Value: 1},
-				{Key: "_id", Value: 0},
+	/*
+		projectStage := bson.D{
+			{
+				Key: "$project", Value: bson.D{
+					{Key: "title", Value: 1},
+					{Key: "_id", Value: 0},
+				},
 			},
-		},
-	}
+		}
+	*/
 	opts := options.Aggregate().SetMaxTime(5 * time.Second)
-	cursor, err := col.Aggregate(ctx, mongo.Pipeline{searchStage, limitStage, projectStage}, opts)
+	cursor, err := col.Aggregate(ctx, mongo.Pipeline{searchStage, limitStage}, opts)
 	if err != nil {
 		log.Println("failed to aggregate:", err)
 		w.WriteHeader(http.StatusInternalServerError)

@@ -39,9 +39,7 @@ type Movie struct {
 			NumReviews int     `bson:"numReviews" json:"num_reviews"`
 			Meter      int     `bson:"meter" json:"meter"`
 		} `bson:"viewer" json:"viewer"`
-		Fresh struct {
-			NumReviews int `bson:"numReviews" json:"num_reviews"`
-		} `bson:"fresh" json:"fresh"`
+		Fresh  int `bson:"fresh" json:"fresh"`
 		Critic struct {
 			Rating     float64 `bson:"rating" json:"rating"`
 			NumReviews int     `bson:"numReviews" json:"num_reviews"`
