@@ -15,8 +15,7 @@ func NewHandler(mcli *Client) http.Handler {
 	mux := http.NewServeMux()
 
 	handler := &Handler{
-		mcli:    mcli,
-		timeNow: time.Now,
+		mcli: mcli,
 	}
 	mux.HandleFunc("/search", handler.search)
 
@@ -31,8 +30,7 @@ func NewServer(cfg *Config, handler http.Handler) *http.Server {
 }
 
 type Handler struct {
-	mcli    *Client
-	timeNow func() time.Time
+	mcli *Client
 }
 
 func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
