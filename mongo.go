@@ -47,6 +47,6 @@ func (c *Client) collection(col string) *mongo.Collection {
 	return c.cli.Database(c.db).Collection(col)
 }
 
-func (c *Client) Post() *mongo.Collection {
-	return c.collection("posts")
+func (c *Client) Movies() *mongo.Collection {
+	return c.collection("movies")
 }

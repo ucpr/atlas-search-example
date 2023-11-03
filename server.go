@@ -1,16 +1,14 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
 
-	"connectrpc.com/connect"
-	"github.com/google/uuid"
-	v1 "github.com/ucpr/atlas-search-example/proto/go/app/v1"
-	"github.com/ucpr/atlas-search-example/proto/go/app/v1/appv1connect"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func NewHandler(mcli *Client) http.Handler {
@@ -20,9 +18,7 @@ func NewHandler(mcli *Client) http.Handler {
 		mcli:    mcli,
 		timeNow: time.Now,
 	}
-	path, sh := appv1connect.NewServiceHandler(handler)
-	log.Println("mounted path:", path)
-	mux.Handle(path, sh)
+	mux.HandleFunc("/search", handler.search)
 
 	return mux
 }
@@ -39,54 +35,59 @@ type Handler struct {
 	timeNow func() time.Time
 }
 
-func (s *Handler) GetPost(ctx context.Context, in *connect.Request[v1.GetPostRequest]) (*connect.Response[v1.GetPostResponse], error) {
-	col := s.mcli.Post()
-	var post Post
-	if err := col.FindOne(ctx, bson.M{"_id": in.Msg.Id}).Decode(&post); err != nil {
-		return nil, err
-	}
+func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	col := h.mcli.Movies()
+	query := r.URL.Query().Get("query")
 
-	return &connect.Response[v1.GetPostResponse]{
-		Msg: &v1.GetPostResponse{
-			Post: &v1.Post{
-				Id:        post.ID,
-				Title:     post.Title,
-				Content:   post.Content,
-				Author:    post.Author,
-				CreatedAt: post.CreatedAt,
-				UpdatedAt: post.UpdatedAt,
+	// 検索クエリを実行します。
+	searchStage := bson.D{
+		{Key: "$search", Value: bson.D{
+			{
+				Key: "text", Value: bson.D{
+					{
+						Key: "path", Value: "title",
+					},
+					{
+						Key: "query", Value: query,
+					},
+				},
+			},
+		}},
+	}
+	limitStage := bson.D{
+		{Key: "$limit", Value: 5},
+	}
+	projectStage := bson.D{
+		{
+			Key: "$project", Value: bson.D{
+				{Key: "title", Value: 1},
+				{Key: "_id", Value: 0},
 			},
 		},
-	}, nil
-}
-
-func (s *Handler) ListPosts(ctx context.Context, _ *connect.Request[v1.ListPostsRequest]) (*connect.Response[v1.ListPostsResponse], error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (s *Handler) CreatePost(ctx context.Context, in *connect.Request[v1.CreatePostRequest]) (*connect.Response[v1.CreatePostResponse], error) {
-	col := s.mcli.Post()
-	post := &Post{
-		ID:        uuid.New().String(),
-		Title:     in.Msg.Title,
-		Content:   in.Msg.Content,
-		Author:    in.Msg.Author,
-		CreatedAt: s.timeNow().Unix(),
-		UpdatedAt: s.timeNow().Unix(),
 	}
-	if _, err := col.InsertOne(ctx, post); err != nil {
-		return nil, err
+	opts := options.Aggregate().SetMaxTime(5 * time.Second)
+	cursor, err := col.Aggregate(ctx, mongo.Pipeline{searchStage, limitStage, projectStage}, opts)
+	if err != nil {
+		log.Println("failed to aggregate:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	return &connect.Response[v1.CreatePostResponse]{
-		Msg: &v1.CreatePostResponse{
-			Post: &v1.Post{
-				Id:        post.ID,
-				Title:     post.Title,
-				Content:   post.Content,
-				Author:    post.Author,
-				CreatedAt: post.CreatedAt,
-				UpdatedAt: post.UpdatedAt,
-			},
-		},
-	}, nil
+
+	// 結果を表示します。
+	var results []Movie
+	if err := cursor.All(ctx, &results); err != nil {
+		log.Println("failed to decode results:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("searched:", query, "results:", len(results))
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		log.Println("failed to encode results:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
