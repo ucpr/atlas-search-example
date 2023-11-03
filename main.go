@@ -29,6 +29,7 @@ func main() {
 		if err := mcli.Disconnect(ctx); err != nil {
 			log.Panicln("failed to disconnect from mongo:", err)
 		}
+		log.Println("successfully disconnected from mongo")
 	}()
 
 	handler := NewHandler(mcli)
