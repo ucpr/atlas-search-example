@@ -7,14 +7,14 @@ import (
 )
 
 const (
-	prefix = ""
+	prefix = "MONGO_"
 )
 
 type Config struct {
-	MongoURI      string `env:"MONGO_URI"`
-	MongoPassword string `env:"MONGO_PASSWORD"`
-	MongoUser     string `env:"MONGO_USER"`
-	MongoDatabase string `env:"MONGO_DATABASE"`
+	MongoURI      string `env:"URI"`
+	MongoPassword string `env:"PASSWORD"`
+	MongoUser     string `env:"USER"`
+	MongoDatabase string `env:"DATABASE"`
 }
 
 func NewConfig(ctx context.Context) (*Config, error) {
